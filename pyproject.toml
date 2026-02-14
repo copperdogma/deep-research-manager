@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deep-research"
+version = "0.1.0"
+description = "CLI tool for managing multi-model deep research cycles."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.0",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.40"]
+google = ["google-generativeai>=0.8"]
+# xAI uses openai-compatible client, no extra package needed
+all = [
+  "openai>=1.0",
+  "anthropic>=0.40",
+  "google-generativeai>=0.8",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.9.0",
+]
+
+[project.scripts]
+deep-research = "deep_research.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
