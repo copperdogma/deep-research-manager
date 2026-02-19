@@ -95,10 +95,14 @@ Install only what you need:
 
 ```bash
 pip install "deep-research[openai]"      # OpenAI (also used by xAI)
+pip install "deep-research[xai]"         # xAI via OpenAI-compatible client
 pip install "deep-research[anthropic]"   # Anthropic
 pip install "deep-research[google]"      # Google
 pip install "deep-research[all]"         # Everything
 ```
+
+Note: OpenAI/xAI extras currently constrain `httpx<0.28` for compatibility with
+`openai` SDK versions that still pass the removed `proxies` keyword.
 
 ## Development
 

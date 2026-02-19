@@ -74,11 +74,12 @@ _(Add entries as conventions emerge)_
 
 ## Effective Patterns
 
-_(Add entries as patterns prove reliable)_
+- 2026-02-19 — Guard provider extras with compatibility constraints: when provider SDKs depend on fast-moving HTTP stacks, pin known-safe ranges in optional extras and add tests that assert those constraints in `pyproject.toml`. (`pyproject.toml`, `tests/test_dependency_constraints.py`)
 
 ## Known Pitfalls
 
 - 2026-02-13 — OpenAI max_tokens vs max_completion_tokens: newer OpenAI models (gpt-5.2+) reject `max_tokens` and require `max_completion_tokens`. The xAI client uses the same OpenAI SDK so needs the same parameter. (`src/deep_research/providers.py`)
+- 2026-02-19 — OpenAI SDK 1.52.2 with httpx 0.28.x: `httpx` removed `proxies` in 0.28, which triggers `AsyncClient.__init__() got an unexpected keyword argument 'proxies'` before API calls. Keep OpenAI/xAI installs on `httpx<0.28` unless upgrading to a confirmed-compatible OpenAI SDK. (`pyproject.toml`, `README.md`)
 
 ## Lessons Learned
 
