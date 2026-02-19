@@ -26,8 +26,8 @@ MODEL_CONFIG = {
         "env_var": "GEMINI_API_KEY",
         "env_fallbacks": ["GOOGLE_API_KEY"],
         "display_name": "Google",
-        "research_model": "gemini-3-pro",
-        "synthesis_model": "gemini-3-pro",
+        "research_model": "gemini-3-pro-preview",
+        "synthesis_model": "gemini-3-pro-preview",
     },
     "xai": {
         "env_var": "XAI_API_KEY",
@@ -53,6 +53,11 @@ DEFAULT_PARAMS = {
     "temperature": 0.0,
     "max_tokens": 128000,
 }
+
+
+def _error_text(exc: Exception) -> str:
+    """Return a useful error string even when exception message is empty."""
+    return str(exc) or exc.__class__.__name__
 
 
 @dataclass
@@ -159,7 +164,7 @@ async def call_openai(prompt: str, model: str, timeout: int) -> ProviderResult:
         return ProviderResult("openai", model, content, tokens, cost, elapsed)
     except Exception as e:
         elapsed = time.monotonic() - start
-        return ProviderResult("openai", model, "", 0, 0.0, elapsed, error=str(e))
+        return ProviderResult("openai", model, "", 0, 0.0, elapsed, error=_error_text(e))
 
 
 async def call_anthropic(prompt: str, model: str, timeout: int) -> ProviderResult:
@@ -168,10 +173,13 @@ async def call_anthropic(prompt: str, model: str, timeout: int) -> ProviderResul
     try:
         from anthropic import AsyncAnthropic
         client = AsyncAnthropic()
+        # Anthropic rejects very large non-streaming requests; keep this below
+        # their long-request streaming threshold.
+        max_tokens = min(DEFAULT_PARAMS["max_tokens"], 8192)
         response = await asyncio.wait_for(
             client.messages.create(
                 model=model,
-                max_tokens=DEFAULT_PARAMS["max_tokens"],
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             ),
             timeout=timeout,
@@ -183,7 +191,7 @@ async def call_anthropic(prompt: str, model: str, timeout: int) -> ProviderResul
         return ProviderResult("anthropic", model, content, tokens, cost, elapsed)
     except Exception as e:
         elapsed = time.monotonic() - start
-        return ProviderResult("anthropic", model, "", 0, 0.0, elapsed, error=str(e))
+        return ProviderResult("anthropic", model, "", 0, 0.0, elapsed, error=_error_text(e))
 
 
 async def call_google(prompt: str, model: str, timeout: int) -> ProviderResult:
@@ -207,7 +215,7 @@ async def call_google(prompt: str, model: str, timeout: int) -> ProviderResult:
         return ProviderResult("google", model, content, tokens, cost, elapsed)
     except Exception as e:
         elapsed = time.monotonic() - start
-        return ProviderResult("google", model, "", 0, 0.0, elapsed, error=str(e))
+        return ProviderResult("google", model, "", 0, 0.0, elapsed, error=_error_text(e))
 
 
 async def call_xai(prompt: str, model: str, timeout: int) -> ProviderResult:
@@ -235,7 +243,7 @@ async def call_xai(prompt: str, model: str, timeout: int) -> ProviderResult:
         return ProviderResult("xai", model, content, tokens, cost, elapsed)
     except Exception as e:
         elapsed = time.monotonic() - start
-        return ProviderResult("xai", model, "", 0, 0.0, elapsed, error=str(e))
+        return ProviderResult("xai", model, "", 0, 0.0, elapsed, error=_error_text(e))
 
 
 PROVIDER_CALLERS = {
