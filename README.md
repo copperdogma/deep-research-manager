@@ -7,13 +7,19 @@ A CLI tool that manages the lifecycle of multi-model deep research cycles. Send 
 ## Install
 
 ```bash
-pip install git+https://github.com/copperdogma/deep-research-manager.git
+pip install "deep-research @ git+https://github.com/copperdogma/deep-research-manager.git@main"
 ```
 
 With all AI providers:
 
 ```bash
-pip install "git+https://github.com/copperdogma/deep-research-manager.git#egg=deep-research[all]"
+pip install "deep-research[all] @ git+https://github.com/copperdogma/deep-research-manager.git@main"
+```
+
+Pin to a specific commit:
+
+```bash
+pip install "deep-research[openai] @ git+https://github.com/copperdogma/deep-research-manager.git@fe329cf1b533d3bc07b1968a555a7394b2d6b07c"
 ```
 
 Or with pipx (recommended for CLI tools):
@@ -29,7 +35,8 @@ Set whichever providers you have access to. All are optional.
 ```bash
 export OPENAI_API_KEY="sk-..."
 export ANTHROPIC_API_KEY="sk-ant-..."
-export GOOGLE_API_KEY="AI..."
+export GEMINI_API_KEY="AI..."   # preferred
+# or: export GOOGLE_API_KEY="AI..."
 export XAI_API_KEY="xai-..."
 ```
 

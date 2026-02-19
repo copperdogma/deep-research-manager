@@ -1,3 +1,17 @@
+## [2026-02-19] - Gemini defaults/key fallback and install command refresh
+
+### Added
+- Provider key-resolution tests for Google Gemini env var precedence/fallback behavior.
+
+### Fixed
+- Google provider now checks `GEMINI_API_KEY` first and falls back to `GOOGLE_API_KEY`.
+
+### Changed
+- Google default model updated to `gemini-3-pro` for both research and synthesis.
+- CLI/project/spec messages now reference `GEMINI_API_KEY (or GOOGLE_API_KEY)` for Google.
+- README install commands now use PEP 508 VCS syntax (`name[extra] @ git+...`) and include a pinned-commit example.
+- Bumped package version to `0.1.2`.
+
 ## [2026-02-19] - Fix OpenAI/httpx proxies compatibility regression
 
 ### Added

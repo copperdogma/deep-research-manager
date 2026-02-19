@@ -306,16 +306,16 @@ def run(provider_name: str | None, dry_run: bool, debug: bool, timeout: int):
         if provider_list[0] not in providers.MODEL_CONFIG:
             click.echo(f"Error: unknown provider '{provider_name}'.", err=True)
             sys.exit(1)
-        env_var = providers.MODEL_CONFIG[provider_list[0]]["env_var"]
-        if not os.environ.get(env_var):
-            click.echo(f"Error: {env_var} not set.", err=True)
+        if not providers.has_provider_api_key(provider_list[0]):
+            click.echo(f"Error: {providers.provider_env_hint(provider_list[0])} not set.", err=True)
             sys.exit(1)
     else:
         provider_list = providers.get_available_providers()
 
     if not provider_list:
         click.echo(
-            "Error: No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, etc. "
+            "Error: No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, "
+            "GEMINI_API_KEY (or GOOGLE_API_KEY), etc. "
             "Or paste results manually into ai-agent-XX.md files.",
             err=True,
         )

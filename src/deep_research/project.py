@@ -20,30 +20,32 @@ def slugify(name: str) -> str:
 def detect_api_keys() -> dict[str, str]:
     """Return a dict of provider_name -> env_var for available API keys."""
     key_map = {
-        "OpenAI": "OPENAI_API_KEY",
-        "Anthropic": "ANTHROPIC_API_KEY",
-        "Google": "GOOGLE_API_KEY",
-        "xAI": "XAI_API_KEY",
+        "OpenAI": ["OPENAI_API_KEY"],
+        "Anthropic": ["ANTHROPIC_API_KEY"],
+        "Google": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        "xAI": ["XAI_API_KEY"],
     }
     found = {}
-    for name, var in key_map.items():
-        if os.environ.get(var):
-            found[name] = var
+    for name, vars_to_check in key_map.items():
+        for var in vars_to_check:
+            if os.environ.get(var):
+                found[name] = var
+                break
     return found
 
 
 def detect_missing_keys() -> dict[str, str]:
     """Return a dict of provider_name -> env_var for missing API keys."""
     key_map = {
-        "OpenAI": "OPENAI_API_KEY",
-        "Anthropic": "ANTHROPIC_API_KEY",
-        "Google": "GOOGLE_API_KEY",
-        "xAI": "XAI_API_KEY",
+        "OpenAI": ["OPENAI_API_KEY"],
+        "Anthropic": ["ANTHROPIC_API_KEY"],
+        "Google": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        "xAI": ["XAI_API_KEY"],
     }
     missing = {}
-    for name, var in key_map.items():
-        if not os.environ.get(var):
-            missing[name] = var
+    for name, vars_to_check in key_map.items():
+        if not any(os.environ.get(var) for var in vars_to_check):
+            missing[name] = " or ".join(vars_to_check)
     return missing
 
 

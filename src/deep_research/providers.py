@@ -23,10 +23,11 @@ MODEL_CONFIG = {
         "synthesis_model": "claude-opus-4-6",
     },
     "google": {
-        "env_var": "GOOGLE_API_KEY",
+        "env_var": "GEMINI_API_KEY",
+        "env_fallbacks": ["GOOGLE_API_KEY"],
         "display_name": "Google",
-        "research_model": "gemini-2.5-flash",
-        "synthesis_model": "gemini-2.5-pro",
+        "research_model": "gemini-3-pro",
+        "synthesis_model": "gemini-3-pro",
     },
     "xai": {
         "env_var": "XAI_API_KEY",
@@ -69,8 +70,31 @@ def get_available_providers() -> list[str]:
     """Return list of provider keys that have API keys set."""
     return [
         key for key, config in MODEL_CONFIG.items()
-        if os.environ.get(config["env_var"])
+        if get_provider_api_key(key)
     ]
+
+
+def get_provider_api_key(provider_key: str) -> str | None:
+    """Return provider API key using primary env var then any fallbacks."""
+    config = MODEL_CONFIG[provider_key]
+    vars_to_check = [config["env_var"], *config.get("env_fallbacks", [])]
+    for var in vars_to_check:
+        value = os.environ.get(var)
+        if value:
+            return value
+    return None
+
+
+def has_provider_api_key(provider_key: str) -> bool:
+    """Return whether any configured API key env var exists for provider."""
+    return bool(get_provider_api_key(provider_key))
+
+
+def provider_env_hint(provider_key: str) -> str:
+    """Return display text for provider API env vars."""
+    config = MODEL_CONFIG[provider_key]
+    vars_to_check = [config["env_var"], *config.get("env_fallbacks", [])]
+    return " or ".join(vars_to_check)
 
 
 def resolve_synthesis_model(alias: str | None) -> tuple[str, str]:
@@ -83,20 +107,20 @@ def resolve_synthesis_model(alias: str | None) -> tuple[str, str]:
         if alias in MODEL_ALIASES:
             provider_key, model_override = MODEL_ALIASES[alias]
             config = MODEL_CONFIG[provider_key]
-            if not os.environ.get(config["env_var"]):
+            if not has_provider_api_key(provider_key):
                 available = get_available_providers()
                 raise ValueError(
                     f"No API key found for {alias}. "
                     f"Available: {', '.join(available) if available else 'none'}.\n"
-                    f"Set {config['env_var']} or choose another model."
+                    f"Set {provider_env_hint(provider_key)} or choose another model."
                 )
             model = model_override or config["synthesis_model"]
             return provider_key, model
         elif alias in MODEL_CONFIG:
             provider_key = alias
             config = MODEL_CONFIG[provider_key]
-            if not os.environ.get(config["env_var"]):
-                raise ValueError(f"No API key found for {alias}. Set {config['env_var']}.")
+            if not has_provider_api_key(provider_key):
+                raise ValueError(f"No API key found for {alias}. Set {provider_env_hint(provider_key)}.")
             return provider_key, config["synthesis_model"]
         else:
             raise ValueError(f"Unknown model alias: {alias}")
@@ -108,7 +132,8 @@ def resolve_synthesis_model(alias: str | None) -> tuple[str, str]:
             return provider_key, config["synthesis_model"]
 
     raise ValueError(
-        "No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or XAI_API_KEY."
+        "No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, "
+        "GEMINI_API_KEY (or GOOGLE_API_KEY), or XAI_API_KEY."
     )
 
 
@@ -166,7 +191,10 @@ async def call_google(prompt: str, model: str, timeout: int) -> ProviderResult:
     start = time.monotonic()
     try:
         import google.generativeai as genai
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        api_key = get_provider_api_key("google")
+        if not api_key:
+            raise ValueError(f"{provider_env_hint('google')} not set.")
+        genai.configure(api_key=api_key)
         gen_model = genai.GenerativeModel(model)
         response = await asyncio.wait_for(
             asyncio.to_thread(gen_model.generate_content, prompt),
@@ -226,7 +254,8 @@ async def run_research(prompt: str, providers: list[str] | None = None,
 
     if not providers:
         raise ValueError(
-            "No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, etc. "
+            "No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, "
+            "GEMINI_API_KEY (or GOOGLE_API_KEY), etc. "
             "Or paste results manually into ai-agent-XX.md files."
         )
 

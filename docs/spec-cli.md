@@ -76,7 +76,7 @@ Created: best-ui-tools/
   final-synthesis.md     ← final report goes here
 
 API keys found: OpenAI, Anthropic
-API keys missing: Google (GOOGLE_API_KEY), xAI (XAI_API_KEY)
+API keys missing: Google (GEMINI_API_KEY or GOOGLE_API_KEY), xAI (XAI_API_KEY)
 
 Next: paste your research prompt into research-prompt.md, then run:
   cd best-ui-tools && deep-research run
@@ -441,7 +441,7 @@ API keys are read from environment variables. No config file needed for MVP.
 |---|---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `gpt-5.2` | `gpt-5.2` |
 | Anthropic | `ANTHROPIC_API_KEY` | `claude-opus-4-6` | `claude-opus-4-6` |
-| Google | `GOOGLE_API_KEY` | `gemini-2.5-flash` | `gemini-2.5-pro` |
+| Google | `GEMINI_API_KEY` (fallback: `GOOGLE_API_KEY`) | `gemini-3-pro` | `gemini-3-pro` |
 | xAI | `XAI_API_KEY` | `grok-4.1` | `grok-4.1` |
 
 **Model defaults are hardcoded for MVP** but should be easy to change in the source (single config dict). A future enhancement could read overrides from `~/.deep-research.yaml` or a per-project config.
@@ -493,7 +493,7 @@ Running research prompt against 4 providers...
 
   OpenAI (gpt-5.2)       ⠋ 1m 23s
   Anthropic (opus-4.6)   ⠋ 1m 23s
-  Google (gemini-2.5)    ✓ gemini-2-5-flash-report.md (9,118 words, $0.12, 58s)
+  Google (gemini-3-pro)  ✓ gemini-3-pro-report.md (9,118 words, $0.12, 58s)
   xAI (grok-4.1)         ⠋ 1m 23s
 ```
 
@@ -600,7 +600,7 @@ $ cp -r ../best-ui-tools ~/projects/cineforge/docs/research/
 Abort: "research-prompt.md is empty. Paste your research prompt first."
 
 **`run` called with no API keys:**  
-Abort: "No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, etc. in your environment. Or paste results manually into ai-agent-XX.md files."
+Abort: "No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY (or GOOGLE_API_KEY), etc. in your environment. Or paste results manually into ai-agent-XX.md files."
 
 **`run` called and some calls fail:**  
 Complete the successful calls, write error details to the failed provider's output file, print summary showing which succeeded and which failed. Don't abort the whole run.

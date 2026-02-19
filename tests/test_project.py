@@ -142,7 +142,7 @@ def test_project_status(tmp_project):
 
 
 def test_detect_api_keys_empty(monkeypatch):
-    for var in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "XAI_API_KEY"]:
+    for var in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "XAI_API_KEY"]:
         monkeypatch.delenv(var, raising=False)
     assert project.detect_api_keys() == {}
 
@@ -150,8 +150,16 @@ def test_detect_api_keys_empty(monkeypatch):
 def test_detect_api_keys_partial(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("XAI_API_KEY", raising=False)
     keys = project.detect_api_keys()
     assert "OpenAI" in keys
     assert "Anthropic" not in keys
+
+
+def test_detect_api_keys_prefers_gemini_var(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    monkeypatch.setenv("GOOGLE_API_KEY", "goog-test")
+    keys = project.detect_api_keys()
+    assert keys["Google"] == "GEMINI_API_KEY"
