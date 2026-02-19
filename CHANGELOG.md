@@ -10,3 +10,4 @@
 ### Changed
 - Provider dependency docs now include the `xai` extra and a compatibility note for OpenAI/httpx versions.
 - Agent memory notes updated with the new compatibility pitfall and mitigation pattern.
+- Bumped package version to `0.1.1`.
