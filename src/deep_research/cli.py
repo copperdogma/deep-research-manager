@@ -10,7 +10,7 @@ from pathlib import Path
 
 import click
 
-from deep_research import frontmatter, project, providers, synthesis
+from deep_research import frontmatter, project, providers, synthesis, updater
 
 
 def _final_model_hint() -> str:
@@ -523,6 +523,38 @@ def final(model: str | None, dry_run: bool, debug: bool, timeout: int):
         ]
         debug_path = _write_debug_file(project_dir, "final", "\n".join(debug_parts))
         click.echo(f"Debug output: {debug_path.name}")
+
+
+@main.command("check-providers")
+@click.option("--force", is_flag=True, help="Update without confirmation.")
+def check_providers(force: bool):
+    """Check for newer SOTA models from each provider and update config."""
+    click.echo("Checking for newer models...")
+    
+    # Check for API keys
+    available = providers.get_available_providers()
+    if not available:
+        click.echo("Error: No API keys found. Cannot check for updates.", err=True)
+        sys.exit(1)
+
+    updates = asyncio.run(updater.discover_new_models())
+    
+    if not updates:
+        click.echo("All models are up to date.")
+        return
+
+    click.echo("\nFound newer models:")
+    for provider, new_model in updates.items():
+        current = providers.MODEL_CONFIG[provider]["research_model"]
+        click.echo(f"  {provider:10s} {current} \u2192 {new_model}")
+
+    if not force:
+        if not click.confirm("\nUpdate providers.py with these new models?"):
+            click.echo("Aborted.")
+            return
+
+    updater.update_providers_file(updates)
+    click.echo("\nUpdated providers.py. Run your research again with the new models!")
 
 
 if __name__ == "__main__":
