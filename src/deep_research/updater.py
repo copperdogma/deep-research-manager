@@ -42,8 +42,8 @@ async def fetch_google_models() -> list[str]:
         api_key = providers.get_provider_api_key("google")
         if not api_key: return []
         client = genai.Client(api_key=api_key)
-        # The new SDK models.list() returns an iterable of Model objects
-        return [m.name for m in client.models.list()]
+        # Strip 'models/' prefix to match our internal config style
+        return [m.name.split("/")[-1] for m in client.models.list()]
     except Exception: return []
 
 async def fetch_xai_models() -> list[str]:
@@ -64,10 +64,11 @@ I will provide you with a list of available model IDs from several AI providers,
 Your task is to identify if there is a newer, better flagship "SOTA" model available for each provider specifically for high-reasoning "deep research" tasks.
 
 CRITICAL RULES:
-1. Ignore "realtime", "mini", "flash", "lite", "preview" (unless it's the only way to get a much better model), "vision", or specialized task models.
-2. We want the "Flagship" reasoning model (e.g., Claude Opus over Sonnet, GPT-4o or o1 over GPT-4o-mini).
-3. If the current model is already the best available flagship, do NOT suggest an "upgrade".
-4. Only suggest an upgrade if a definitively better flagship reasoning model has been released.
+1. Ignore "realtime", "mini", "flash", "lite", "vision", or specialized task models. 
+2. Prefer "Flagship" reasoning models (e.g., Claude Opus over Sonnet, GPT-4o or o1 over GPT-4o-mini).
+3. "preview" or "experimental" models are acceptable if they represent the current flagship reasoning model or a significant upgrade over the current non-preview flagship.
+4. If the current model is already the best available flagship (or a version of it), do NOT suggest an "upgrade".
+5. Only suggest an upgrade if a definitively better or newer version of the flagship reasoning model has been released.
 5. Return your answer as a raw JSON object with provider keys and their new SOTA model ID. If no upgrade is needed for a provider, omit it from the JSON.
 
 Current Configuration:
