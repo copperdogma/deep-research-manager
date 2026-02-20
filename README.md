@@ -67,6 +67,7 @@ deep-research final
 |---|---|
 | `deep-research init <topic>` | Create a new research project folder |
 | `deep-research run` | Send prompt to all available API providers in parallel |
+| `deep-research check-providers` | Check for newer SOTA models and update configuration |
 | `deep-research format` | Rename agent files by model name, delete empty placeholders |
 | `deep-research status` | Show current project state |
 | `deep-research final [model]` | Generate synthesis report via API |
