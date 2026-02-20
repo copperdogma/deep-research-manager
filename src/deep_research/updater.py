@@ -1,8 +1,9 @@
-"""Logic for discovering new SOTA models and updating the local configuration."""
+"""Logic for discovering new SOTA models using AI to analyze provider model lists."""
 
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 from pathlib import Path
@@ -12,108 +13,139 @@ from deep_research import providers
 
 PROVIDERS_FILE = Path(__file__).parent / "providers.py"
 
-# Simple versioning regex: looks for numbers and dots/dashes
-VERSION_PATTERN = re.compile(r"(\d+(?:[.-]\d+)*)")
-
-def extract_version(model_id: str) -> list[int]:
-    """Extract numeric version parts from a model ID for comparison."""
-    match = VERSION_PATTERN.search(model_id)
-    if not match:
-        return [0]
-    # Replace dashes with dots for consistent splitting
-    version_str = match.group(1).replace("-", ".")
-    return [int(p) for p in version_str.split(".") if p.isdigit()]
-
-async def fetch_latest_openai() -> str | None:
-    """Fetch the latest GPT model ID from OpenAI."""
+async def fetch_openai_models() -> list[str]:
+    """Fetch all available model IDs from OpenAI."""
     try:
         from openai import AsyncOpenAI
         api_key = providers.get_provider_api_key("openai")
-        if not api_key:
-            return None
+        if not api_key: return []
         client = AsyncOpenAI(api_key=api_key)
         response = await client.models.list()
-        # Filter for gpt models, exclude 'vision', 'instruct', etc. unless they are the main line
-        models = [m.id for m in response.data if m.id.startswith("gpt-") and "vision" not in m.id]
-        if not models:
-            return None
-        return sorted(models, key=extract_version, reverse=True)[0]
-    except Exception:
-        return None
+        return [m.id for m in response.data]
+    except Exception: return []
 
-async def fetch_latest_anthropic() -> str | None:
-    """Fetch the latest Claude model ID from Anthropic."""
+async def fetch_anthropic_models() -> list[str]:
+    """Fetch all available model IDs from Anthropic."""
     try:
         from anthropic import AsyncAnthropic
         api_key = providers.get_provider_api_key("anthropic")
-        if not api_key:
-            return None
+        if not api_key: return []
         client = AsyncAnthropic(api_key=api_key)
-        # Note: Anthropic's model listing API might require specific versions or be limited
-        # For this implementation, we assume the SDK supports it as of 2026.
         response = await client.models.list()
-        models = [m.id for m in response.data if "claude" in m.id and "opus" in m.id]
-        if not models:
-            # Fallback to any claude if no opus found
-            models = [m.id for m in response.data if "claude" in m.id]
-        if not models:
-            return None
-        return sorted(models, key=extract_version, reverse=True)[0]
-    except Exception:
-        return None
+        return [m.id for m in response.data]
+    except Exception: return []
 
-async def fetch_latest_google() -> str | None:
-    """Fetch the latest Gemini model ID from Google."""
+async def fetch_google_models() -> list[str]:
+    """Fetch all available model IDs from Google using the new genai SDK."""
     try:
-        import google.generativeai as genai
+        from google import genai
         api_key = providers.get_provider_api_key("google")
-        if not api_key:
-            return None
-        genai.configure(api_key=api_key)
-        models = [m.name.replace("models/", "") for m in genai.list_models()
-                  if "gemini" in m.name and "pro" in m.name]
-        if not models:
-            return None
-        return sorted(models, key=extract_version, reverse=True)[0]
-    except Exception:
-        return None
+        if not api_key: return []
+        client = genai.Client(api_key=api_key)
+        # The new SDK models.list() returns an iterable of Model objects
+        return [m.name for m in client.models.list()]
+    except Exception: return []
 
-async def fetch_latest_xai() -> str | None:
-    """Fetch the latest Grok model ID from xAI."""
+async def fetch_xai_models() -> list[str]:
+    """Fetch all available model IDs from xAI."""
     try:
         from openai import AsyncOpenAI
         api_key = os.environ.get("XAI_API_KEY")
-        if not api_key:
-            return None
+        if not api_key: return []
         client = AsyncOpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
         response = await client.models.list()
-        models = [m.id for m in response.data if "grok" in m.id]
-        if not models:
-            return None
-        return sorted(models, key=extract_version, reverse=True)[0]
-    except Exception:
-        return None
+        return [m.id for m in response.data]
+    except Exception: return []
+
+SOTA_DECISION_PROMPT = """
+You are an expert in LLM benchmarking and SOTA (State of the Art) model tracking.
+I will provide you with a list of available model IDs from several AI providers, along with the current "SOTA" models I am using for deep research.
+
+Your task is to identify if there is a newer, better flagship "SOTA" model available for each provider specifically for high-reasoning "deep research" tasks.
+
+CRITICAL RULES:
+1. Ignore "realtime", "mini", "flash", "lite", "preview" (unless it's the only way to get a much better model), "vision", or specialized task models.
+2. We want the "Flagship" reasoning model (e.g., Claude Opus over Sonnet, GPT-4o or o1 over GPT-4o-mini).
+3. If the current model is already the best available flagship, do NOT suggest an "upgrade".
+4. Only suggest an upgrade if a definitively better flagship reasoning model has been released.
+5. Return your answer as a raw JSON object with provider keys and their new SOTA model ID. If no upgrade is needed for a provider, omit it from the JSON.
+
+Current Configuration:
+{current_config}
+
+Available Models:
+{available_models}
+
+Response Format:
+{{
+  "openai": "gpt-...",
+  "anthropic": "claude-..."
+}}
+"""
 
 async def discover_new_models() -> dict[str, str]:
-    """Check all providers for newer models."""
-    tasks = {
-        "openai": fetch_latest_openai(),
-        "anthropic": fetch_latest_anthropic(),
-        "google": fetch_latest_google(),
-        "xai": fetch_latest_xai(),
+    """Check all providers for newer models using AI to decide."""
+    
+    # 1. Fetch all model lists in parallel
+    lists_task = {
+        "openai": fetch_openai_models(),
+        "anthropic": fetch_anthropic_models(),
+        "google": fetch_google_models(),
+        "xai": fetch_xai_models(),
     }
+    lists_results = await asyncio.gather(*lists_task.values())
+    available_models = dict(zip(lists_task.keys(), lists_results))
     
-    results = await asyncio.gather(*tasks.values())
-    updates = {}
+    # Filter out providers with no models found
+    available_models = {k: v for k, v in available_models.items() if v}
+    if not available_models:
+        return {}
+
+    # 2. Prepare current config for prompt
+    current_config = {
+        k: v["research_model"] for k, v in providers.MODEL_CONFIG.items()
+    }
+
+    prompt = SOTA_DECISION_PROMPT.format(
+        current_config=json.dumps(current_config, indent=2),
+        available_models=json.dumps(available_models, indent=2)
+    )
+
+    # 3. Use an available provider to make the decision
+    # We prefer Anthropic or OpenAI for reasoning
+    decision_provider = None
+    for pref in ["anthropic", "openai", "google"]:
+        if providers.has_provider_api_key(pref):
+            decision_provider = pref
+            break
     
-    for (provider_key, latest), current_config in zip(zip(tasks.keys(), results), providers.MODEL_CONFIG.values()):
-        current = current_config["research_model"]
-        if latest and latest != current:
-            # Simple check: is the new version "higher"?
-            if extract_version(latest) >= extract_version(current):
-                updates[provider_key] = latest
-                
-    return updates
+    if not decision_provider:
+        return {}
+
+    # Resolve a model for synthesis to use for this decision
+    _, model_id = providers.resolve_synthesis_model(decision_provider)
+    
+    try:
+        result = await providers.run_synthesis(prompt, decision_provider, model_id)
+        if result.error:
+            return {}
+        
+        # Extract JSON from response
+        match = re.search(r"\{.*\}", result.content, re.DOTALL)
+        if not match:
+            return {}
+        
+        updates = json.loads(match.group(0))
+        # Validate that the suggested models actually exist in our lists
+        validated_updates = {}
+        for provider, new_model in updates.items():
+            if provider in available_models and new_model in available_models[provider]:
+                if new_model != current_config.get(provider):
+                    validated_updates[provider] = new_model
+                    
+        return validated_updates
+    except Exception:
+        return {}
 
 def update_providers_file(updates: dict[str, str]):
     """Surgically update providers.py with new model IDs."""
@@ -124,7 +156,6 @@ def update_providers_file(updates: dict[str, str]):
     
     for provider, new_model in updates.items():
         # Update MODEL_CONFIG
-        # We look for the provider block and then the research_model/synthesis_model lines
         provider_pattern = rf'"{provider}": \{{[^}}]+?}}'
         match = re.search(provider_pattern, content, re.DOTALL)
         if match:
@@ -136,8 +167,7 @@ def update_providers_file(updates: dict[str, str]):
         # Update MODEL_ALIASES for specific shortcuts
         if provider == "anthropic" and "opus" in new_model:
             content = re.sub(r'("opus":\s*\("anthropic",\s*)"[^"]+"\)', rf'\1"{new_model}")', content)
-        elif provider == "openai":
-            # If we wanted to update a specific alias like 'chatgpt' if it had a hardcoded model
-            pass
+        elif provider == "anthropic" and "sonnet" in new_model:
+             content = re.sub(r'("sonnet":\s*\("anthropic",\s*)"[^"]+"\)', rf'\1"{new_model}")', content)
 
     PROVIDERS_FILE.write_text(content)

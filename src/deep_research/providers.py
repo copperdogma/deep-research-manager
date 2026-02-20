@@ -195,21 +195,29 @@ async def call_anthropic(prompt: str, model: str, timeout: int) -> ProviderResul
 
 
 async def call_google(prompt: str, model: str, timeout: int) -> ProviderResult:
-    """Send a research/synthesis prompt to Google."""
+    """Send a research/synthesis prompt to Google using the new genai SDK."""
     start = time.monotonic()
     try:
-        import google.generativeai as genai
+        from google import genai
         api_key = get_provider_api_key("google")
         if not api_key:
             raise ValueError(f"{provider_env_hint('google')} not set.")
-        genai.configure(api_key=api_key)
-        gen_model = genai.GenerativeModel(model)
-        response = await asyncio.wait_for(
-            asyncio.to_thread(gen_model.generate_content, prompt),
-            timeout=timeout,
+        
+        client = genai.Client(api_key=api_key)
+        # The new SDK's models.generate_content is synchronous or async
+        # For simplicity in this caller, we use the synchronous one wrapped in to_thread
+        # if the async one is not preferred.
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model,
+            contents=prompt,
+            config={
+                'temperature': DEFAULT_PARAMS["temperature"],
+                'max_output_tokens': 8192, # limit for stability
+            }
         )
         content = response.text or ""
-        tokens = 0  # Google SDK doesn't always expose token counts easily
+        tokens = 0  
         elapsed = time.monotonic() - start
         cost = 0.0  # placeholder
         return ProviderResult("google", model, content, tokens, cost, elapsed)

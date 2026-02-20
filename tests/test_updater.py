@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import pytest
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch, AsyncMock
 from deep_research import updater, providers
@@ -17,26 +18,26 @@ def mock_providers_file(tmp_path):
     with patch("deep_research.updater.PROVIDERS_FILE", test_file):
         yield test_file
 
-def test_extract_version():
-    assert updater.extract_version("gpt-5.2") == [5, 2]
-    assert updater.extract_version("claude-opus-4-6") == [4, 6]
-    assert updater.extract_version("gemini-1.5-pro") == [1, 5]
-    assert updater.extract_version("no-numbers") == [0]
-
 def test_discover_new_models_openai():
     # Mock current config
     with patch.dict(providers.MODEL_CONFIG, {
         "openai": {"research_model": "gpt-5.2"}
     }):
-        # Mock API response
-        mock_data = MagicMock()
-        mock_data.data = [MagicMock(id="gpt-5.2"), MagicMock(id="gpt-5.5")]
-        
-        with patch("openai.AsyncOpenAI") as mock_client:
-            mock_inst = mock_client.return_value
-            mock_inst.models.list = AsyncMock(return_value=mock_data)
+        # Mock model lists
+        with patch("deep_research.updater.fetch_openai_models", return_value=["gpt-5.2", "gpt-5.5"]), \
+             patch("deep_research.updater.fetch_anthropic_models", return_value=[]), \
+             patch("deep_research.updater.fetch_google_models", return_value=[]), \
+             patch("deep_research.updater.fetch_xai_models", return_value=[]):
             
-            with patch("deep_research.providers.get_provider_api_key", return_value="fake-key"):
+            # Mock synthesis call (the decision)
+            mock_result = MagicMock()
+            mock_result.error = None
+            mock_result.content = '{"openai": "gpt-5.5"}'
+            
+            with patch("deep_research.providers.run_synthesis", return_value=mock_result), \
+                 patch("deep_research.providers.has_provider_api_key", return_value=True), \
+                 patch("deep_research.providers.resolve_synthesis_model", return_value=("openai", "gpt-5.2")):
+                
                 updates = asyncio.run(updater.discover_new_models())
                 assert updates.get("openai") == "gpt-5.5"
 
@@ -66,17 +67,20 @@ def test_discover_no_updates():
     with patch.dict(providers.MODEL_CONFIG, {
         "openai": {"research_model": "gpt-5.5"}
     }):
-        mock_data = MagicMock()
-        mock_data.data = [MagicMock(id="gpt-5.2"), MagicMock(id="gpt-5.5")]
-        
-        with patch("openai.AsyncOpenAI") as mock_client:
-            mock_inst = mock_client.return_value
-            mock_inst.models.list = AsyncMock(return_value=mock_data)
+        # Mock model lists
+        with patch("deep_research.updater.fetch_openai_models", return_value=["gpt-5.2", "gpt-5.5"]), \
+             patch("deep_research.updater.fetch_anthropic_models", return_value=[]), \
+             patch("deep_research.updater.fetch_google_models", return_value=[]), \
+             patch("deep_research.updater.fetch_xai_models", return_value=[]):
             
-            with patch("deep_research.providers.get_provider_api_key", return_value="fake-key"):
-                # Use a patch for other providers to return None to avoid noise
-                with patch("deep_research.updater.fetch_latest_anthropic", return_value=None), \
-                     patch("deep_research.updater.fetch_latest_google", return_value=None), \
-                     patch("deep_research.updater.fetch_latest_xai", return_value=None):
-                    updates = asyncio.run(updater.discover_new_models())
-                    assert "openai" not in updates
+            # Mock synthesis call (no update suggested)
+            mock_result = MagicMock()
+            mock_result.error = None
+            mock_result.content = '{}'
+            
+            with patch("deep_research.providers.run_synthesis", return_value=mock_result), \
+                 patch("deep_research.providers.has_provider_api_key", return_value=True), \
+                 patch("deep_research.providers.resolve_synthesis_model", return_value=("openai", "gpt-5.5")):
+                
+                updates = asyncio.run(updater.discover_new_models())
+                assert "openai" not in updates
