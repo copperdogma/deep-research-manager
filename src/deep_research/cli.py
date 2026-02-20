@@ -10,7 +10,7 @@ from pathlib import Path
 
 import click
 
-from deep_research import frontmatter, project, providers, synthesis, updater
+from deep_research import __version__, frontmatter, project, providers, synthesis, updater
 
 
 def _final_model_hint() -> str:
@@ -31,6 +31,7 @@ def _write_debug_file(project_dir: Path, name: str, content: str) -> Path:
 
 
 @click.group()
+@click.version_option(version=__version__)
 def main():
     """Manage multi-model deep research cycles."""
     pass

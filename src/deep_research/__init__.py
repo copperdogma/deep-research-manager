@@ -1,3 +1,3 @@
 """deep-research: CLI tool for managing multi-model deep research cycles."""
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
