@@ -30,7 +30,17 @@ def _write_debug_file(project_dir: Path, name: str, content: str) -> Path:
     return path
 
 
-@click.group()
+class ConfigGroup(click.Group):
+    def get_help(self, ctx):
+        rv = super().get_help(ctx)
+        config_lines = ["", "Configured Providers:"]
+        for k, c in providers.MODEL_CONFIG.items():
+            status = "SET" if providers.has_provider_api_key(k) else "MISSING"
+            config_lines.append(f"  {c['display_name']:10s} [{status:7s}] (Research: {c['research_model']})")
+        return rv + "\n".join(config_lines) + "\n"
+
+
+@click.group(cls=ConfigGroup)
 @click.version_option(version=__version__)
 def main():
     """Manage multi-model deep research cycles."""
