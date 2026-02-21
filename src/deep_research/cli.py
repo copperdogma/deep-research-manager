@@ -534,10 +534,15 @@ def check_providers(force: bool):
     
     # Check for API keys
     available = providers.get_available_providers()
+    missing = [k for k in providers.MODEL_CONFIG if not providers.has_provider_api_key(k)]
+    
     if not available:
         click.echo("Error: No API keys found. Cannot check for updates.", err=True)
         sys.exit(1)
 
+    if missing:
+        click.echo(f"Note: Skipping {', '.join(missing)} (API keys not set).")
+    
     updates = asyncio.run(updater.discover_new_models())
     
     if not updates:

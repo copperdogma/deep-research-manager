@@ -112,6 +112,9 @@ async def discover_new_models() -> dict[str, str]:
         available_models=json.dumps(available_models, indent=2)
     )
 
+    if os.environ.get("DEEP_RESEARCH_DEBUG"):
+        print(f"--- SOTA Decision Prompt ---\n{prompt}\n---")
+
     # 3. Use an available provider to make the decision
     # We prefer Anthropic or OpenAI for reasoning
     decision_provider = None
@@ -129,8 +132,13 @@ async def discover_new_models() -> dict[str, str]:
     try:
         result = await providers.run_synthesis(prompt, decision_provider, model_id)
         if result.error:
+            if os.environ.get("DEEP_RESEARCH_DEBUG"):
+                print(f"Error making SOTA decision: {result.error}")
             return {}
         
+        if os.environ.get("DEEP_RESEARCH_DEBUG"):
+            print(f"--- SOTA Decision Content ---\n{result.content}\n---")
+
         # Extract JSON from response
         match = re.search(r"\{.*\}", result.content, re.DOTALL)
         if not match:
