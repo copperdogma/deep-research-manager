@@ -11,8 +11,6 @@ from typing import Any
 
 from deep_research import providers
 
-PROVIDERS_FILE = Path(__file__).parent / "providers.py"
-
 async def fetch_openai_models() -> list[str]:
     """Fetch all available model IDs from OpenAI."""
     try:
@@ -157,26 +155,29 @@ async def discover_new_models() -> dict[str, str]:
         return {}
 
 def update_providers_file(updates: dict[str, str]):
-    """Surgically update providers.py with new model IDs."""
+    """Update a persistent user-level JSON config with new model IDs."""
     if not updates:
         return
 
-    content = PROVIDERS_FILE.read_text()
-    
+    config = {}
+    if providers.USER_CONFIG_FILE.exists():
+        try:
+            with open(providers.USER_CONFIG_FILE) as f:
+                config = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
     for provider, new_model in updates.items():
-        # Update MODEL_CONFIG
-        provider_pattern = rf'"{provider}": \{{[^}}]+?}}'
-        match = re.search(provider_pattern, content, re.DOTALL)
-        if match:
-            block = match.group(0)
-            new_block = re.sub(r'("research_model":\s*)"[^"]+"', rf'\1"{new_model}"', block)
-            new_block = re.sub(r'("synthesis_model":\s*)"[^"]+"', rf'\1"{new_model}"', new_block)
-            content = content.replace(block, new_block)
+        if provider not in config:
+            config[provider] = {}
+        config[provider]["research_model"] = new_model
+        config[provider]["synthesis_model"] = new_model
 
-        # Update MODEL_ALIASES for specific shortcuts
-        if provider == "anthropic" and "opus" in new_model:
-            content = re.sub(r'("opus":\s*\("anthropic",\s*)"[^"]+"\)', rf'\1"{new_model}")', content)
-        elif provider == "anthropic" and "sonnet" in new_model:
-             content = re.sub(r'("sonnet":\s*\("anthropic",\s*)"[^"]+"\)', rf'\1"{new_model}")', content)
+    # Ensure directory exists
+    providers.USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    
+    with open(providers.USER_CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=2)
 
-    PROVIDERS_FILE.write_text(content)
+    # Re-apply overrides to the current running process
+    providers.load_user_overrides()

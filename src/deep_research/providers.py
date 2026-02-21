@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+import json
 from dataclasses import dataclass
+from pathlib import Path
+
+USER_CONFIG_DIR = Path.home() / ".deep-research"
+USER_CONFIG_FILE = USER_CONFIG_DIR / "config.json"
 
 
 # Model configuration: provider -> (research_model, synthesis_model)
@@ -37,6 +42,31 @@ MODEL_CONFIG = {
     },
 }
 
+def load_user_overrides():
+    """Merge overrides from ~/.deep-research/config.json into MODEL_CONFIG."""
+    if not USER_CONFIG_FILE.exists():
+        return
+    
+    try:
+        with open(USER_CONFIG_FILE) as f:
+            overrides = json.load(f)
+            
+        for provider, models in overrides.items():
+            if provider in MODEL_CONFIG:
+                if "research_model" in models:
+                    MODEL_CONFIG[provider]["research_model"] = models["research_model"]
+                if "synthesis_model" in models:
+                    MODEL_CONFIG[provider]["synthesis_model"] = models["synthesis_model"]
+            
+            # Also update ALIASES if they match the provider
+            if provider == "anthropic":
+                if "research_model" in models and "opus" in models["research_model"]:
+                    MODEL_ALIASES["opus"] = ("anthropic", models["research_model"])
+                if "synthesis_model" in models and "sonnet" in models["synthesis_model"]:
+                    MODEL_ALIASES["sonnet"] = ("anthropic", models["synthesis_model"])
+    except (json.JSONDecodeError, IOError):
+        pass
+
 # Preferred model order for synthesis (best first)
 SYNTHESIS_PREFERENCE = ["anthropic", "openai", "google", "xai"]
 
@@ -48,6 +78,9 @@ MODEL_ALIASES = {
     "gemini": ("google", None),
     "grok": ("xai", None),
 }
+
+# Load overrides immediately on import
+load_user_overrides()
 
 DEFAULT_PARAMS = {
     "temperature": 0.0,
