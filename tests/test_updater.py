@@ -9,13 +9,10 @@ from deep_research import updater, providers
 
 # Use a temporary file for testing
 @pytest.fixture
-def mock_providers_file(tmp_path):
-    orig_path = Path(providers.__file__)
-    content = orig_path.read_text()
-    test_file = tmp_path / "providers_test.py"
-    test_file.write_text(content)
-    
-    with patch("deep_research.updater.PROVIDERS_FILE", test_file):
+def mock_user_config(tmp_path):
+    test_file = tmp_path / "config.json"
+    with patch("deep_research.providers.USER_CONFIG_FILE", test_file), \
+         patch("deep_research.providers.USER_CONFIG_DIR", tmp_path):
         yield test_file
 
 def test_discover_new_models_openai():
@@ -41,7 +38,7 @@ def test_discover_new_models_openai():
                 updates = asyncio.run(updater.discover_new_models())
                 assert updates.get("openai") == "gpt-5.5"
 
-def test_update_providers_file(mock_providers_file):
+def test_update_providers_file(mock_user_config):
     updates = {
         "openai": "gpt-6.0",
         "anthropic": "claude-opus-5-0"
@@ -49,19 +46,14 @@ def test_update_providers_file(mock_providers_file):
     
     updater.update_providers_file(updates)
     
-    new_content = mock_providers_file.read_text()
+    with open(mock_user_config) as f:
+        config = json.load(f)
     
-    # Check if MODEL_CONFIG was updated
-    assert '"openai": {' in new_content
-    assert '"research_model": "gpt-6.0"' in new_content
-    assert '"synthesis_model": "gpt-6.0"' in new_content
-    
-    assert '"anthropic": {' in new_content
-    assert '"research_model": "claude-opus-5-0"' in new_content
-    assert '"synthesis_model": "claude-opus-5-0"' in new_content
-    
-    # Check if MODEL_ALIASES was updated for opus
-    assert '"opus": ("anthropic", "claude-opus-5-0")' in new_content
+    # Check if config was updated
+    assert config["openai"]["research_model"] == "gpt-6.0"
+    assert config["openai"]["synthesis_model"] == "gpt-6.0"
+    assert config["anthropic"]["research_model"] == "claude-opus-5-0"
+    assert config["anthropic"]["synthesis_model"] == "claude-opus-5-0"
 
 def test_discover_no_updates():
     with patch.dict(providers.MODEL_CONFIG, {
