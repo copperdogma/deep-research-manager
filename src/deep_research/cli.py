@@ -33,7 +33,7 @@ def _write_debug_file(project_dir: Path, name: str, content: str) -> Path:
 class ConfigGroup(click.Group):
     def get_help(self, ctx):
         rv = super().get_help(ctx)
-        config_lines = ["", "Configured Providers:"]
+        config_lines = ["", "", "Configured Providers:"]
         for k, c in providers.MODEL_CONFIG.items():
             status = "SET" if providers.has_provider_api_key(k) else "MISSING"
             config_lines.append(f"  {c['display_name']:10s} [{status:7s}] (Research: {c['research_model']})")

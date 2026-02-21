@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deep-research"
-version = "0.1.9"
+version = "0.2.0"
 description = "CLI tool for managing multi-model deep research cycles."
 readme = "README.md"
 requires-python = ">=3.10"
