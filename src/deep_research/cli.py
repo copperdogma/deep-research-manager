@@ -324,8 +324,11 @@ def _try_clipboard(text: str) -> bool:
 
 
 @main.command()
-@click.option("--provider", "provider_name", default=None,
-              help="Run only a specific provider (e.g., openai, anthropic).")
+@click.option("--provider", "provider_names", multiple=True, metavar="PROVIDER",
+              help="Limit to specific provider(s). Repeat for multiple: "
+                   "--provider openai --provider google. "
+                   "Omit to run all providers with API keys set. "
+                   "Known values: openai, anthropic, google, xai.")
 @click.option("--mode", "run_mode", default="standard",
               type=click.Choice(["standard", "deep"], case_sensitive=False),
               help="Research mode. 'deep' uses OpenAI/Google deep-research APIs.")
@@ -343,7 +346,7 @@ def _try_clipboard(text: str) -> bool:
 @click.option("--max-walltime", default=1800, type=int,
               help="Max seconds to wait for Google deep research (default 1800).")
 def run(
-    provider_name: str | None,
+    provider_names: tuple[str, ...],
     run_mode: str,
     dry_run: bool,
     debug: bool,
@@ -355,6 +358,13 @@ def run(
     max_walltime: int,
 ):
     """Send the research prompt to all available API providers in parallel.
+
+    \b
+    Examples:
+      deep-research run                              # all providers with API keys
+      deep-research run --provider openai            # OpenAI only
+      deep-research run --provider openai --provider google  # two providers
+      deep-research run --mode deep                  # deep research mode (OpenAI + Google)
 
     Use --mode deep to use real deep-research APIs (OpenAI Responses API +
     Google Interactions API).  Providers without deep support (Anthropic, xAI)
@@ -373,14 +383,18 @@ def run(
     prompt_text = project.get_research_prompt(project_dir)
 
     # Determine providers
-    if provider_name:
-        provider_list = [provider_name.lower()]
-        if provider_list[0] not in providers.MODEL_CONFIG:
-            click.echo(f"Error: unknown provider '{provider_name}'.", err=True)
-            sys.exit(1)
-        if not providers.has_provider_api_key(provider_list[0]):
-            click.echo(f"Error: {providers.provider_env_hint(provider_list[0])} not set.", err=True)
-            sys.exit(1)
+    if provider_names:
+        provider_list = []
+        for pname in provider_names:
+            key = pname.lower()
+            if key not in providers.MODEL_CONFIG:
+                known = ", ".join(providers.MODEL_CONFIG.keys())
+                click.echo(f"Error: unknown provider '{pname}'. Known: {known}", err=True)
+                sys.exit(1)
+            if not providers.has_provider_api_key(key):
+                click.echo(f"Error: {providers.provider_env_hint(key)} not set.", err=True)
+                sys.exit(1)
+            provider_list.append(key)
     else:
         provider_list = providers.get_available_providers()
 

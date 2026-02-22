@@ -1,3 +1,14 @@
+## [0.3.2] - 2026-02-22 - Fix --provider silently dropping all but last value
+
+### Fixed
+- `deep-research run --provider openai --provider google` now correctly runs both providers. Previously, Click silently kept only the last `--provider` value when the flag was repeated, causing silent data loss (e.g. only Google ran, OpenAI was dropped with no error or warning).
+
+### Changed
+- `--provider` on `run` now uses `multiple=True` and accepts repeated flags: `--provider openai --provider google`.
+- `run` command docstring now includes concrete usage examples visible in `--help`, including multi-provider syntax.
+- `--provider` help text explicitly documents: repeat the flag for multiple providers, omit it for all providers, and lists known values.
+- Bumped package version to `0.3.2`.
+
 ## [0.3.1] - 2026-02-22 - Add stub command for manual paste-in workflow
 
 ### Added
