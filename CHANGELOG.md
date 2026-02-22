@@ -1,3 +1,9 @@
+## [0.3.3] - 2026-02-22 - Show full expanded help when invoked with no subcommand
+
+### Changed
+- `deep-research` with no arguments now prints the group header followed by each subcommand's full help (description + all options), not the truncated one-liner commands list.
+- Bumped package version to `0.3.3`.
+
 ## [0.3.2] - 2026-02-22 - Fix --provider silently dropping all but last value
 
 ### Fixed

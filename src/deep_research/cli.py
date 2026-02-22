@@ -72,11 +72,17 @@ class ConfigGroup(click.Group):
         return rv + "\n".join(config_lines) + "\n"
 
 
-@click.group(cls=ConfigGroup)
+@click.group(cls=ConfigGroup, invoke_without_command=True)
 @click.version_option(version=__version__)
-def main():
+@click.pass_context
+def main(ctx):
     """Manage multi-model deep research cycles."""
-    pass
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+        for name, cmd in sorted(ctx.command.commands.items()):
+            sub_ctx = click.Context(cmd, info_name=name, parent=ctx)
+            click.echo(f"\n{'─' * 60}")
+            click.echo(cmd.get_help(sub_ctx))
 
 
 @main.command()
