@@ -30,6 +30,38 @@ def _write_debug_file(project_dir: Path, name: str, content: str) -> Path:
     return path
 
 
+def _write_debug_json(project_dir: Path, provider: str, raw_obj: object) -> Path:
+    """Write raw deep-research payload to _debug-{provider}-dr.json."""
+    import json as _json
+
+    path = project_dir / f"_debug-{provider}-dr.json"
+    try:
+        # Try to serialize; SDK objects often have a model_dump() or to_dict()
+        if hasattr(raw_obj, "model_dump"):
+            data = raw_obj.model_dump()
+        elif hasattr(raw_obj, "to_dict"):
+            data = raw_obj.to_dict()
+        else:
+            data = str(raw_obj)
+        path.write_text(_json.dumps(data, indent=2, default=str))
+    except Exception:
+        path.write_text(str(raw_obj))
+    return path
+
+
+def _result_filename(result) -> str:
+    """Return the output filename for a ProviderResult.
+
+    Deep-research results use a distinct naming pattern:
+      ai-{provider}-deep-research.md
+    Standard results use the existing convention:
+      {slugified-model}-report.md
+    """
+    if result.mode == "deep":
+        return f"ai-{result.provider}-deep-research.md"
+    return f"{project.slugify(result.model)}-report.md"
+
+
 class ConfigGroup(click.Group):
     def get_help(self, ctx):
         rv = super().get_help(ctx)
@@ -294,11 +326,40 @@ def _try_clipboard(text: str) -> bool:
 @main.command()
 @click.option("--provider", "provider_name", default=None,
               help="Run only a specific provider (e.g., openai, anthropic).")
+@click.option("--mode", "run_mode", default="standard",
+              type=click.Choice(["standard", "deep"], case_sensitive=False),
+              help="Research mode. 'deep' uses OpenAI/Google deep-research APIs.")
 @click.option("--dry-run", is_flag=True, help="Show what would be called without making API requests.")
 @click.option("--debug", is_flag=True, help="Write full prompts and responses to _debug-*.md files.")
 @click.option("--timeout", default=600, type=int, help="Timeout per API call in seconds.")
-def run(provider_name: str | None, dry_run: bool, debug: bool, timeout: int):
-    """Send the research prompt to all available API providers in parallel."""
+@click.option("--no-web", is_flag=True, default=False,
+              help="Disable web search (errors for OpenAI deep research which requires it).")
+@click.option("--openai-dr-model", default=None,
+              help="Override OpenAI deep-research model (e.g. o3-deep-research).")
+@click.option("--google-dr-agent", default=None,
+              help="Override Google deep-research agent id.")
+@click.option("--poll-interval", default=10, type=int,
+              help="Seconds between status polls for deep research (default 10).")
+@click.option("--max-walltime", default=1800, type=int,
+              help="Max seconds to wait for Google deep research (default 1800).")
+def run(
+    provider_name: str | None,
+    run_mode: str,
+    dry_run: bool,
+    debug: bool,
+    timeout: int,
+    no_web: bool,
+    openai_dr_model: str | None,
+    google_dr_agent: str | None,
+    poll_interval: int,
+    max_walltime: int,
+):
+    """Send the research prompt to all available API providers in parallel.
+
+    Use --mode deep to use real deep-research APIs (OpenAI Responses API +
+    Google Interactions API).  Providers without deep support (Anthropic, xAI)
+    fall back to standard mode automatically.
+    """
     try:
         project_dir = project.find_project_dir()
     except FileNotFoundError as e:
@@ -332,29 +393,83 @@ def run(provider_name: str | None, dry_run: bool, debug: bool, timeout: int):
         )
         sys.exit(1)
 
+    # Early validation: --no-web with OpenAI deep research is an error
+    if run_mode == "deep" and no_web and "openai" in provider_list:
+        click.echo(
+            "Error: OpenAI deep research requires at least one data source. "
+            "Cannot use --no-web with OpenAI deep research.",
+            err=True,
+        )
+        sys.exit(1)
+
     if debug:
         debug_parts = [f"# Debug: run\n\nTimestamp: {datetime.now(timezone.utc).isoformat()}\n"]
+        debug_parts.append(f"## Mode: {run_mode}\n")
         debug_parts.append(f"## Prompt Sent\n\n```\n{prompt_text}\n```\n")
 
+    is_deep = run_mode == "deep"
+
     if dry_run:
-        click.echo(f"Would run research prompt against {len(provider_list)} providers:")
+        click.echo(f"Would run research prompt ({run_mode} mode) against {len(provider_list)} providers:")
         for p in provider_list:
             config = providers.MODEL_CONFIG[p]
-            click.echo(f"  {config['display_name']} ({config['research_model']})")
+            if is_deep and p in providers.DEEP_RESEARCH_PROVIDERS:
+                dr = providers.DEEP_RESEARCH_DEFAULTS[p]
+                label = openai_dr_model or dr.get("model") or google_dr_agent or dr.get("agent")
+                click.echo(f"  {config['display_name']} DEEP ({label})")
+            else:
+                fallback = " (fallback to standard)" if is_deep else ""
+                click.echo(f"  {config['display_name']} ({config['research_model']}){fallback}")
         click.echo(f"\nPrompt: {project.word_count(prompt_text):,} words")
         return
 
-    click.echo(f"Running research prompt against {len(provider_list)} providers...\n")
-    results = asyncio.run(providers.run_research(prompt_text, provider_list, timeout=timeout))
+    mode_label = "deep research" if is_deep else "research"
+
+    # Warn about fallback providers in deep mode
+    if is_deep:
+        fallback_providers = [p for p in provider_list if p not in providers.DEEP_RESEARCH_PROVIDERS]
+        if fallback_providers:
+            names = ", ".join(providers.MODEL_CONFIG[p]["display_name"] for p in fallback_providers)
+            click.echo(f"Note: {names} will use standard mode (no deep research support).\n")
+
+    click.echo(f"Running {mode_label} prompt against {len(provider_list)} providers...\n")
+
+    # For deep mode, use a longer default timeout
+    effective_timeout = timeout if timeout != 600 else (3600 if is_deep else 600)
+
+    results = asyncio.run(
+        providers.run_research(
+            prompt_text,
+            provider_list,
+            timeout=effective_timeout,
+            mode=run_mode,
+            openai_dr_model=openai_dr_model,
+            google_dr_agent=google_dr_agent,
+            no_web=no_web,
+            poll_interval=poll_interval,
+            max_walltime=max_walltime,
+            debug=debug,
+        )
+    )
+
+    # Read topic from frontmatter (once)
+    rp_meta, _ = frontmatter.parse((project_dir / "research-prompt.md").read_text())
+    topic = rp_meta.get("topic", project_dir.name)
 
     succeeded = 0
     for result in results:
         config = providers.MODEL_CONFIG[result.provider]
+        result_is_deep = result.mode == "deep"
+
         if result.error:
             # Write error to file
-            error_filename = f"{project.slugify(result.model)}-report.md"
+            error_filename = _result_filename(result)
             error_path = project_dir / error_filename
-            error_path.write_text(f"# Error\n\nProvider: {config['display_name']}\nModel: {result.model}\nError: {result.error}\n")
+            error_path.write_text(
+                f"# Error\n\nProvider: {config['display_name']}\n"
+                f"Model: {result.model}\nMode: {result.mode}\n"
+                f"Error: {result.error}\n"
+            )
             click.echo(f"  \u2717 {config['display_name']} ({result.model}) \u2192 ERROR: {result.error}")
             if debug:
                 debug_parts.append(
@@ -362,8 +477,7 @@ def run(provider_name: str | None, dry_run: bool, debug: bool, timeout: int):
                     f"**ERROR** ({result.elapsed_seconds:.1f}s)\n\n```\n{result.error}\n```\n"
                 )
         else:
-            # Use the model we actually called for the filename
-            filename = f"{project.slugify(result.model)}-report.md"
+            filename = _result_filename(result)
             filepath = project_dir / filename
 
             # Check for existing file
@@ -375,34 +489,33 @@ def run(provider_name: str | None, dry_run: bool, debug: bool, timeout: int):
             words = project.word_count(result.content)
             elapsed_str = f"{result.elapsed_seconds:.0f}s"
 
-            # Read topic from frontmatter
-            rp_meta, _ = frontmatter.parse((project_dir / "research-prompt.md").read_text())
-            topic = rp_meta.get("topic", project_dir.name)
+            meta = {
+                "type": "research-report",
+                "topic": topic,
+                "canonical-model-name": result.model,
+                "research-mode": result.mode,
+                "collected": datetime.now(timezone.utc).isoformat(),
+            }
+            filepath.write_text(frontmatter.dump(meta, result.content))
 
-            filepath.write_text(
-                frontmatter.dump(
-                    {
-                        "type": "research-report",
-                        "topic": topic,
-                        "canonical-model-name": result.model,
-                        "collected": datetime.now(timezone.utc).isoformat(),
-                    },
-                    result.content,
-                )
-            )
+            mode_tag = " [DEEP]" if result_is_deep else ""
             click.echo(
-                f"  \u2713 {config['display_name']} ({result.model}) \u2192 {filename} "
+                f"  \u2713 {config['display_name']} ({result.model}){mode_tag} \u2192 {filename} "
                 f"({words:,} words, ${result.cost:.2f}, {elapsed_str})"
             )
             succeeded += 1
 
             if debug:
                 debug_parts.append(
-                    f"## Response: {config['display_name']} ({result.model})\n\n"
+                    f"## Response: {config['display_name']} ({result.model}) [{result.mode}]\n\n"
                     f"**OK** \u2014 {words:,} words, {result.tokens_used:,} tokens, "
                     f"${result.cost:.2f}, {result.elapsed_seconds:.1f}s\n\n"
                     f"```\n{result.content}\n```\n"
                 )
+
+            # Write debug JSON payload for deep research results
+            if debug and result_is_deep and getattr(result, "debug_payload", None):
+                _write_debug_json(project_dir, result.provider, result.debug_payload)
 
     total_cost = sum(r.cost for r in results)
     click.echo(f"\nCompleted {succeeded} of {len(results)} API calls. Total cost: ${total_cost:.2f}")
