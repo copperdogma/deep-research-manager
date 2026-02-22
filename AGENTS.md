@@ -87,6 +87,7 @@ Entry format:
 
 ## Project Conventions
 
+- **Version bump on every commit**: every commit that changes code or behavior must bump the version in both `pyproject.toml` and `src/deep_research/__init__.py` (they must match), and prepend a Keep a Changelog entry to `CHANGELOG.md`. Use semver: MAJOR for breaking, MINOR for features, PATCH for fixes.
 - **Output file naming**: standard reports → `{slugify(model)}-report.md`; deep research reports → `ai-{provider}-deep-research.md`. Debug payloads → `_debug-{provider}-dr.json`.
 - **Frontmatter `research-mode` field**: all reports written by `run` include `research-mode: standard` or `research-mode: deep` in frontmatter.
 - **Google SDK**: the project uses `google-genai` (the `google.genai` namespace), NOT the older `google-generativeai`. The pyproject.toml extra is `google-genai>=1.55.0`.

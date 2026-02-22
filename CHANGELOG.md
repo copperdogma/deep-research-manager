@@ -1,3 +1,23 @@
+## [0.3.0] - 2026-02-22 - Add real deep research mode (OpenAI + Google)
+
+### Added
+- `--mode deep` flag on `run` command to use provider-native deep research APIs.
+- OpenAI deep research via Responses API (`o4-mini-deep-research` default) with background polling and `web_search_preview`.
+- Google deep research via Interactions API (`deep-research-pro-preview-12-2025` agent) with background polling.
+- CLI flags: `--openai-dr-model`, `--google-dr-agent`, `--no-web`, `--poll-interval`, `--max-walltime`.
+- Deep research output files use distinct naming: `ai-openai-deep-research.md`, `ai-google-deep-research.md`.
+- Debug JSON payloads (`_debug-{provider}-dr.json`) written when `--debug` is used with deep mode.
+- `research-mode` field in report frontmatter (`standard` or `deep`).
+- 16 new unit tests for deep research routing, validation, CLI flags, and output filenames.
+- Deep research spec document (`docs/proper-deep-research-spec.md`).
+
+### Changed
+- Google SDK dependency changed from `google-generativeai>=0.8` to `google-genai>=1.55.0` (required for Interactions API).
+- `ProviderResult` dataclass now includes `mode` and `debug_payload` fields.
+- `run_research()` accepts `mode` parameter; providers without deep support fall back to standard with a warning.
+- AGENTS.md updated with architecture docs, conventions, pitfalls, and lessons learned from deep research work.
+- Bumped package version to `0.3.0`.
+
 ## [2026-02-19] - Gemini preview model fix and live provider smoke tests
 
 ### Added
