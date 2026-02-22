@@ -543,6 +543,83 @@ def run(
         click.echo(f"\nDebug output: {debug_path.name}")
 
 
+@main.command()
+@click.argument("provider_names", nargs=-1, metavar="[PROVIDER]...")
+@click.option(
+    "--all", "stub_all", is_flag=True,
+    help="Create stubs even for providers that already have a report file.",
+)
+@click.option(
+    "--mode", "stub_mode", default="standard",
+    type=click.Choice(["standard", "deep"], case_sensitive=False),
+    help="Research mode to record in the stub frontmatter (default: standard).",
+)
+def stub(provider_names: tuple[str, ...], stub_all: bool, stub_mode: str):
+    """Create blank report stubs for manual paste-in.
+
+    Stubs have correct frontmatter (model name, topic, timestamp) but an
+    empty body, so they are excluded from synthesis until you paste content.
+
+    \b
+    Examples:
+      deep-research stub               # all providers without an existing report
+      deep-research stub xai           # only xAI
+      deep-research stub xai anthropic # xAI and Anthropic
+      deep-research stub --all         # every provider, overwriting existing stubs
+      deep-research stub xai --mode deep
+    """
+    try:
+        project_dir = project.find_project_dir()
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    rp_meta, _ = frontmatter.parse((project_dir / "research-prompt.md").read_text())
+    topic = rp_meta.get("topic", project_dir.name)
+
+    # Resolve target providers
+    if provider_names:
+        target = []
+        for name in provider_names:
+            key = name.lower()
+            if key not in providers.MODEL_CONFIG:
+                known = ", ".join(providers.MODEL_CONFIG.keys())
+                click.echo(f"Error: unknown provider '{name}'. Known: {known}", err=True)
+                sys.exit(1)
+            target.append(key)
+    else:
+        target = list(providers.MODEL_CONFIG.keys())
+
+    created = []
+    skipped = []
+
+    for provider_key in target:
+        config = providers.MODEL_CONFIG[provider_key]
+        model = config["research_model"]
+
+        if not stub_all and project.stub_exists(project_dir, provider_key, model):
+            skipped.append((provider_key, model))
+            continue
+
+        path = project.write_stub(project_dir, provider_key, model, topic, mode=stub_mode)
+        created.append((provider_key, model, path.name))
+
+    if created:
+        click.echo("Created stubs:")
+        for _, model, filename in created:
+            click.echo(f"  {filename}  ({model})")
+    if skipped:
+        skip_names = ", ".join(m for _, m in skipped)
+        click.echo(f"Skipped (already have reports): {skip_names}")
+        click.echo("  Use --all to overwrite.")
+    if not created and not skipped:
+        click.echo("Nothing to do.")
+
+    if created:
+        click.echo(f"\nPaste your results into the stub files, then run:")
+        click.echo(f"  deep-research final    (synthesize with {_final_model_hint()})")
+
+
 @main.command("final")
 @click.argument("model", required=False, default=None)
 @click.option("--dry-run", is_flag=True, help="Show token count / estimated cost without calling the API.")

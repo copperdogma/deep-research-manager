@@ -41,7 +41,7 @@ Entry format:
 
 ## Architecture Overview
 
-- `cli.py` — Click command definitions (init, run, format, final, prepare-final, status, check-providers)
+- `cli.py` — Click command definitions (init, run, stub, format, final, prepare-final, status, check-providers)
 - `project.py` — Folder/file management (init, format, status, slugify)
 - `providers.py` — API client wrappers (OpenAI, Anthropic, Google, xAI) + deep research callers
 - `synthesis.py` — Synthesis prompt generation, payload assembly
@@ -88,7 +88,7 @@ Entry format:
 ## Project Conventions
 
 - **Version bump on every commit**: every commit that changes code or behavior must bump the version in both `pyproject.toml` and `src/deep_research/__init__.py` (they must match), and prepend a Keep a Changelog entry to `CHANGELOG.md`. Use semver: MAJOR for breaking, MINOR for features, PATCH for fixes.
-- **Output file naming**: standard reports → `{slugify(model)}-report.md`; deep research reports → `ai-{provider}-deep-research.md`. Debug payloads → `_debug-{provider}-dr.json`.
+- **Output file naming**: standard reports → `{slugify(model)}-report.md`; deep research reports → `ai-{provider}-deep-research.md`; stubs use the same naming. Debug payloads → `_debug-{provider}-dr.json`.
 - **Frontmatter `research-mode` field**: all reports written by `run` include `research-mode: standard` or `research-mode: deep` in frontmatter.
 - **Google SDK**: the project uses `google-genai` (the `google.genai` namespace), NOT the older `google-generativeai`. The pyproject.toml extra is `google-genai>=1.55.0`.
 - **Deep mode fallback**: when `--mode deep` is used with a provider that lacks deep support, warn and fall back to standard — never hard-error.

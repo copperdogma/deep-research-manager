@@ -1,3 +1,19 @@
+## [0.3.1] - 2026-02-22 - Add stub command for manual paste-in workflow
+
+### Added
+- `deep-research stub [PROVIDER...]` command creates blank report stubs with correct frontmatter (model name, topic, timestamp, research-mode) but empty body, ready for manual paste-in.
+- `--all` flag on `stub` overwrites stubs even when a report already exists for that provider.
+- `--mode [standard|deep]` flag on `stub` sets the `research-mode` frontmatter field.
+- `project.write_stub()` helper writes a stub file for a given provider/model.
+- `project.stub_exists()` helper checks if a report already exists for a provider.
+- 16 new tests in `tests/test_stub.py`.
+
+### Fixed
+- `get_report_files()` now includes `ai-*-deep-research.md` files; they were previously excluded from synthesis payload assembly.
+
+### Changed
+- Bumped package version to `0.3.1`.
+
 ## [0.3.0] - 2026-02-22 - Add real deep research mode (OpenAI + Google)
 
 ### Added

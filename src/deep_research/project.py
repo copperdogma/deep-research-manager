@@ -109,14 +109,67 @@ def is_prompt_empty(project_dir: Path) -> bool:
 
 
 def get_report_files(project_dir: Path) -> list[Path]:
-    """Return all report files in the project (ai-agent-*.md and *-report.md), excluding final."""
+    """Return all report files in the project, excluding final-synthesis.md.
+
+    Matches:
+    - *-report.md          (standard run output and manual renames)
+    - ai-agent-NN.md       (blank placeholders)
+    - ai-*-deep-research.md  (deep research run output)
+    """
     reports = []
     for f in sorted(project_dir.iterdir()):
         if f.name == "final-synthesis.md":
             continue
-        if f.name.endswith("-report.md") or re.match(r"ai-agent-\d+\.md", f.name):
+        if (
+            f.name.endswith("-report.md")
+            or re.match(r"ai-agent-\d+\.md", f.name)
+            or re.match(r"ai-.+-deep-research\.md", f.name)
+        ):
             reports.append(f)
     return reports
+
+
+def write_stub(
+    project_dir: Path,
+    provider_key: str,
+    model: str,
+    topic: str,
+    mode: str = "standard",
+) -> Path:
+    """Write a blank report stub for manual paste-in.
+
+    The stub has correct frontmatter but an empty body (just a comment),
+    so it is excluded from synthesis until the user pastes real content.
+    Returns the path written.
+    """
+    if mode == "deep":
+        filename = f"ai-{provider_key}-deep-research.md"
+    else:
+        filename = f"{slugify(model)}-report.md"
+
+    filepath = project_dir / filename
+    filepath.write_text(
+        frontmatter.dump(
+            {
+                "type": "research-report",
+                "topic": topic,
+                "canonical-model-name": model,
+                "research-mode": mode,
+                "collected": datetime.now(timezone.utc).isoformat(),
+            },
+            f"<!-- Paste your {model} results here -->\n",
+        )
+    )
+    return filepath
+
+
+def stub_exists(project_dir: Path, provider_key: str, model: str) -> bool:
+    """Return True if any report file already exists for this provider/model."""
+    names_to_check = [
+        f"{slugify(model)}-report.md",
+        f"ai-{provider_key}-deep-research.md",
+    ]
+    return any((project_dir / name).exists() for name in names_to_check)
 
 
 def get_filled_reports(project_dir: Path) -> list[Path]:
