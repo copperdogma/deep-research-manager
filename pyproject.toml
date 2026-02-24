@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deep-research"
-version = "0.3.3"
+version = "0.3.4"
 description = "CLI tool for managing multi-model deep research cycles."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -14,21 +14,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-openai = [
-  "openai>=1.0",
-  # openai<1.55 can pass `proxies=` to httpx; httpx>=0.28 removed it.
-  "httpx<0.28",
-]
+# openai>=1.55 removed the proxies= kwarg that required httpx<0.28.
+openai = ["openai>=1.55"]
 anthropic = ["anthropic>=0.40"]
 google = ["google-genai>=1.55.0"]
 # xAI uses the OpenAI-compatible client.
-xai = [
-  "openai>=1.0",
-  "httpx<0.28",
-]
+xai = ["openai>=1.55"]
 all = [
-  "openai>=1.0",
-  "httpx<0.28",
+  "openai>=1.55",
   "anthropic>=0.40",
   "google-genai>=1.55.0",
 ]

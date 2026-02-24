@@ -1,3 +1,15 @@
+## [0.3.4] - 2026-02-24 - Fix httpx conflict blocking Google extra
+
+### Fixed
+- Removed stale `httpx<0.28` upper-bound constraint from `openai`, `xai`, and `all` extras.
+  The constraint was a workaround for `openai<1.55` which passed `proxies=` to httpx;
+  httpx>=0.28 removed that kwarg. Since we now require `openai>=1.55`, the cap is
+  unnecessary and conflicted with `google-genai>=1.55.0` (which requires `httpx>=0.28.1`).
+- Bumped `openai` minimum from `>=1.0` to `>=1.55` across `openai`, `xai`, and `all` extras.
+
+### Changed
+- Bumped package version to `0.3.4`.
+
 ## [0.3.3] - 2026-02-22 - Show full expanded help when invoked with no subcommand
 
 ### Changed
