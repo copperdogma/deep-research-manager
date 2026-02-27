@@ -83,6 +83,7 @@ Then produce the following sections:
 - If evidence is weak across all reports, say so — do not manufacture false confidence.
 - Do not simply merge or average — adjudicate.
 - Note which report(s) contributed each key finding.
+- Score each source report on its merits regardless of which AI model produced it. Do not assume the most detailed report is the most accurate — weight verifiable citations over unverified claims.
 """
 
 
