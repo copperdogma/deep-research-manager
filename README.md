@@ -112,6 +112,16 @@ pip install "deep-research[all]"         # Everything
 Note: OpenAI/xAI extras currently constrain `httpx<0.28` for compatibility with
 `openai` SDK versions that still pass the removed `proxies` keyword.
 
+## Why Opus is the Default Synthesis Model
+
+We ran a [systematic bias investigation](docs/synthesis-bias-investigation.md) comparing Claude Opus, GPT-5.2, and Gemini 3.1 Pro as synthesis models across 10 real research projects. Key findings:
+
+- Claude's source reports are genuinely the best (confirmed by all three evaluators)
+- Opus has mild self-scoring bias in the evaluation section (always 5/5) but it doesn't affect architectural recommendations
+- Opus produces significantly more detailed and implementation-ready synthesis output
+- Gemini is unreliable (copied the Opus synthesis verbatim on 2/10 projects)
+- The synthesis prompt includes a debiasing instruction to partially mitigate self-favoritism
+
 ## Development
 
 ```bash
