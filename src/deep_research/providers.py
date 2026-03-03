@@ -34,14 +34,14 @@ MODEL_CONFIG = {
         "env_var": "GEMINI_API_KEY",
         "env_fallbacks": ["GOOGLE_API_KEY"],
         "display_name": "Google",
-        "research_model": "gemini-3-pro-preview",
-        "synthesis_model": "gemini-3-pro-preview",
+        "research_model": "gemini-3.1-pro-preview",
+        "synthesis_model": "gemini-3.1-pro-preview",
     },
     "xai": {
         "env_var": "XAI_API_KEY",
         "display_name": "xAI",
-        "research_model": "grok-4.1",
-        "synthesis_model": "grok-4.1",
+        "research_model": "grok-4-0709",
+        "synthesis_model": "grok-4-0709",
     },
 }
 
@@ -49,7 +49,9 @@ MODEL_CONFIG = {
 # Only openai and google have real deep-research endpoints today.
 DEEP_RESEARCH_DEFAULTS = {
     "openai": {
+        # o4-mini-deep-research = faster/cheaper; o3-deep-research = most powerful
         "model": "o4-mini-deep-research",
+        "model_pro": "o3-deep-research",
         "tool_type": "web_search_preview",
     },
     "google": {
@@ -92,7 +94,7 @@ SYNTHESIS_PREFERENCE = ["anthropic", "openai", "google", "xai"]
 # Aliases for the `final` command
 MODEL_ALIASES = {
     "opus": ("anthropic", "claude-opus-4-6"),
-    "sonnet": ("anthropic", "claude-sonnet-4-5-20250929"),
+    "sonnet": ("anthropic", "claude-sonnet-4-6"),
     "chatgpt": ("openai", None),  # None = use default
     "gemini": ("google", None),
     "grok": ("xai", None),
